@@ -1,0 +1,17 @@
+{
+  "name": "leventcorapsiz/commission-calculator",
+  "authors": [
+    {
+      "name": "leventcorapsiz",
+      "email": "l.corapsiz@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "leventcorapsiz\\CommissionCalculator\\": "src/"
+    }
+  },
+  "require": {
+    "league/csv": "^9.1"
+  }
+}
