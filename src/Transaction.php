@@ -3,16 +3,43 @@
 namespace leventcorapsiz\CommissionCalculator;
 
 use leventcorapsiz\CommissionCalculator\Commissions\CommissionFeeFactory;
+use leventcorapsiz\CommissionCalculator\Services\CurrencyService;
 
 class Transaction
 {
+    /**
+     * @var string
+     */
     protected $transactionDate;
+
+    /**
+     * @var string
+     */
     protected $identificationNumber;
+
+    /**
+     * @var string
+     */
     protected $userType;
+
+    /**
+     * @var string
+     */
     protected $operationType;
+
+    /**
+     * @var int|float
+     */
     protected $amount;
+
+    /**
+     * @var string
+     */
     protected $currency;
-    protected $commissionFee;
+
+    /**
+     * @var Transaction[]
+     */
     protected $userTransactionHistory;
 
     /**
@@ -98,7 +125,7 @@ class Transaction
      */
     public function getCommissionFee()
     {
-        return $this->commissionFee = CommissionFeeFactory::generate(
+        $fee = CommissionFeeFactory::generate(
             $this->userTransactionHistory,
             $this->userType,
             $this->operationType,
@@ -106,5 +133,7 @@ class Transaction
             $this->amount,
             $this->currency
         );
+
+        return CurrencyService::roundAndFormat($this->currency, $fee->calculate());
     }
 }

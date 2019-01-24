@@ -5,9 +5,9 @@ namespace leventcorapsiz\CommissionCalculator\Commissions;
 use leventcorapsiz\CommissionCalculator\Commissions\Types\CashInCommission;
 use leventcorapsiz\CommissionCalculator\Commissions\Types\CashOutLegalCommission;
 use leventcorapsiz\CommissionCalculator\Commissions\Types\CashOutNaturalCommission;
+use leventcorapsiz\CommissionCalculator\Commissions\Types\CommissionTypeInterface;
 use leventcorapsiz\CommissionCalculator\Exceptions\InvalidOperationTypeException;
 use leventcorapsiz\CommissionCalculator\Exceptions\InvalidUserTypeException;
-use leventcorapsiz\CommissionCalculator\Services\CurrencyService;
 
 class CommissionFeeFactory
 {
@@ -19,7 +19,7 @@ class CommissionFeeFactory
      * @param $amount
      * @param $currency
      *
-     * @return float|int
+     * @return CommissionTypeInterface
      * @throws InvalidOperationTypeException
      * @throws InvalidUserTypeException
      */
@@ -56,8 +56,6 @@ class CommissionFeeFactory
                 throw new InvalidOperationTypeException;
         }
 
-        $fee = $commission->calculate();
-
-        return CurrencyService::roundAndFormat($currency, $fee);
+        return $commission;
     }
 }
