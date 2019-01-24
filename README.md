@@ -23,3 +23,10 @@ $fees = $collection->getCommissionFees();
 ## Demo  
   
      php script.php input.csv
+
+## Tests  
+  
+Install dev dependencies via composer and run tests.  
+  
+     composer install --dev
+     ./vendor/bin/phpunit tests
