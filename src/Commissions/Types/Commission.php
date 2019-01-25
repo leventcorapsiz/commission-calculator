@@ -4,7 +4,19 @@ namespace leventcorapsiz\CommissionCalculator\Commissions\Types;
 
 abstract class Commission
 {
+    /**
+     * @var int
+     */
+    const ARITHMETIC_SCALE = 10;
+
+    /**
+     * @var float|int
+     */
     protected $baseAmount;
+
+    /**
+     * @var string
+     */
     protected $currency;
 
     /**
@@ -28,6 +40,11 @@ abstract class Commission
     protected function getFee($rate, $feeAbleAmount = null)
     {
         $amount = $feeAbleAmount ?? $this->baseAmount;
-        return ($amount / 100) * $rate;
+
+        return bcmul(
+            bcdiv($amount, 100, self::ARITHMETIC_SCALE),
+            $rate,
+            self::ARITHMETIC_SCALE
+        );
     }
 }

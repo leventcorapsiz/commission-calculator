@@ -68,7 +68,11 @@ class CashOutNaturalCommission extends Commission implements CommissionTypeInter
                 $commission = 0;
             } else {
                 // charge for only exceeded amount
-                $exceededAmount = $this->baseAmount - $summary['availableFreeChargeLimit'];
+                $exceededAmount = bcsub(
+                    $this->baseAmount,
+                    $summary['availableFreeChargeLimit'],
+                    self::ARITHMETIC_SCALE
+                );
                 $commission     = $this->getFee(self::COMMISSION_PERCENTAGE, $exceededAmount);
             }
         }
@@ -91,19 +95,27 @@ class CashOutNaturalCommission extends Commission implements CommissionTypeInter
         });
 
         foreach ($oldTransactions as $oldTransaction) {
-            $amount += CurrencyService::convert(
-                $oldTransaction->getCurrency(),
-                $oldTransaction->getAmount(),
-                $this->currency
+            $amount = bcadd(
+                CurrencyService::convert(
+                    $oldTransaction->getCurrency(),
+                    $oldTransaction->getAmount(),
+                    $this->currency
+                ),
+                $amount,
+                self::ARITHMETIC_SCALE
             );
             $operationCount++;
         }
 
-        $availableFreeChargeLimit = CurrencyService::convert(
+        $availableFreeChargeLimit = bcsub(
+            CurrencyService::convert(
                 self::WEEKLY_FREE_CHARGE_LIMIT['currency'],
                 self::WEEKLY_FREE_CHARGE_LIMIT['limit'],
                 $this->currency
-            ) - $amount;
+            ),
+            $amount,
+            self::ARITHMETIC_SCALE
+        );
 
         $maximumOperationLimitReached    = $operationCount >= self::WEEKLY_FREE_CHARGE_LIMIT['maxOperations'];
         $userHasAvailableFreeChargeLimit = $availableFreeChargeLimit > 0;

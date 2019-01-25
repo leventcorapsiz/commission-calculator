@@ -31,7 +31,7 @@ class CashOutLegalCommission extends Commission implements CommissionTypeInterfa
             $this->currency
         );
 
-        if ($commission < $minCommission) {
+        if (bccomp($minCommission, $commission, self::ARITHMETIC_SCALE) === 1) {
             return $minCommission;
         }
 

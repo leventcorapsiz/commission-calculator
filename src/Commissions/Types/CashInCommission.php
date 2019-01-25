@@ -31,7 +31,7 @@ class CashInCommission extends Commission implements CommissionTypeInterface
             $this->currency
         );
 
-        if ($commission > $maxCommission) {
+        if (bccomp($commission, $maxCommission, self::ARITHMETIC_SCALE) === 1) {
             return $maxCommission;
         }
 
