@@ -6,7 +6,7 @@ An experimental project that parses transactions from a csv file and calculates 
   
 Clone repository and install dependencies via composer.  
   
-     composer install  
+     composer install --no-dev  
 ## Usage  
   
   
