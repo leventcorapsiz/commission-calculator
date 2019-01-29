@@ -19,6 +19,6 @@ final class TransactionCollectionTest extends TestCase
     {
         $collection = new TransactionCollection();
         $collection->parseFromCSV('./input.csv');
-        $this->assertIsArray($collection->getCommissionFees());
+        $this->assertIsArray($collection->getTransactions());
     }
 }

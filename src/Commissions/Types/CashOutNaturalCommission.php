@@ -2,9 +2,12 @@
 
 namespace leventcorapsiz\CommissionCalculator\Commissions\Types;
 
+use leventcorapsiz\CommissionCalculator\Commissions\Commission;
+use leventcorapsiz\CommissionCalculator\Commissions\CommissionTypeInterface;
+use leventcorapsiz\CommissionCalculator\Models\Amount;
+use leventcorapsiz\CommissionCalculator\Models\Transaction;
 use leventcorapsiz\CommissionCalculator\Services\CurrencyService;
-use leventcorapsiz\CommissionCalculator\Services\DateService;
-use leventcorapsiz\CommissionCalculator\Transaction;
+use leventcorapsiz\CommissionCalculator\TransactionCollection;
 
 class CashOutNaturalCommission extends Commission implements CommissionTypeInterface
 {
@@ -18,60 +21,44 @@ class CashOutNaturalCommission extends Commission implements CommissionTypeInter
      */
     const WEEKLY_FREE_CHARGE_LIMIT = [
         'currency'      => 'EUR',
-        'limit'         => 1000,
+        'amount'        => 1000,
         'maxOperations' => 3
     ];
 
     /**
-     * @var string
-     */
-    const OPERATION_TYPE = 'cash_out';
-
-    /**
-     * @var string
-     */
-    protected $transactionDate;
-
-    /**
      * @var Transaction[]
      */
-    protected $oldTransactions;
+    protected $transactionHistory;
 
-    /**
-     * NaturalCashOutCommission constructor.
-     *
-     * @param $amount
-     * @param $currency
-     * @param $transactionDate
-     * @param $oldTransactions
-     */
-    public function __construct($amount, $currency, $transactionDate, $oldTransactions)
-    {
-        $this->transactionDate = $transactionDate;
-        $this->oldTransactions = $oldTransactions;
-        parent::__construct($amount, $currency);
+    public function __construct(
+        Transaction $transaction,
+        CurrencyService $currencyService,
+        TransactionCollection $transactionCollection
+    ) {
+        $this->transactionHistory = $transactionCollection;
+        parent::__construct($transaction, $currencyService);
     }
 
     /**
-     * @return float
+     * @return Amount
      */
     public function calculate()
     {
         $summary = $this->getWeeklyCashOutSummaryOfUser();
 
         // user has no available free charge limit or allowed for free operation
-        if (!$summary['userHasAvailableFreeChargeLimit'] || $summary['maximumOperationLimitReached']) {
+        if ($summary['availableFreeChargeLimit']->getAmount() <= 0 || $summary['maximumOperationLimitIsReached']) {
             $commission = $this->getFee(self::COMMISSION_PERCENTAGE);
         } else {
             // user has enough limit, free charge
-            if ($summary['availableFreeChargeLimit'] >= $this->baseAmount) {
-                $commission = 0;
+            if ($summary['availableFreeChargeLimit']->getAmount() >= $this->transaction->getAmount()->getAmount()) {
+                $commission = new Amount(0, $this->transaction->getAmountSymbol());
             } else {
                 // charge for only exceeded amount
-                $exceededAmount = bcsub(
-                    $this->baseAmount,
+                $exceededAmount = $this->currencyService->subAmount(
+                    $this->transaction->getAmount(),
                     $summary['availableFreeChargeLimit'],
-                    self::ARITHMETIC_SCALE
+                    $this->transaction->getAmountSymbol()
                 );
                 $commission     = $this->getFee(self::COMMISSION_PERCENTAGE, $exceededAmount);
             }
@@ -85,46 +72,59 @@ class CashOutNaturalCommission extends Commission implements CommissionTypeInter
      */
     private function getWeeklyCashOutSummaryOfUser()
     {
-        $amount         = 0;
-        $operationCount = 0;
-
         // filter the users transactions in same week and same type
-        $oldTransactions = array_filter($this->oldTransactions, function (Transaction $transaction) {
-            return DateService::datesAreInSameWeek($transaction->getTransactionDate(), $this->transactionDate)
-                && $transaction->getOperationType() === self::OPERATION_TYPE;
-        });
+        $weeklyTransactions = $this->getLastWeeksTransactions();
 
-        foreach ($oldTransactions as $oldTransaction) {
-            $amount = bcadd(
-                CurrencyService::convert(
-                    $oldTransaction->getCurrency(),
-                    $oldTransaction->getAmount(),
-                    $this->currency
-                ),
-                $amount,
-                self::ARITHMETIC_SCALE
+        // calculate operation count and total amount of cash out in same week
+        $totalAmount    = new Amount(0, $this->transaction->getAmountSymbol());
+        $operationCount = 0;
+        foreach ($weeklyTransactions as $transaction) {
+            $totalAmount = $this->currencyService->sumAmounts(
+                $totalAmount,
+                $transaction->getAmount(),
+                $this->transaction->getAmountSymbol()
             );
             $operationCount++;
         }
 
-        $availableFreeChargeLimit = bcsub(
-            CurrencyService::convert(
-                self::WEEKLY_FREE_CHARGE_LIMIT['currency'],
-                self::WEEKLY_FREE_CHARGE_LIMIT['limit'],
-                $this->currency
-            ),
-            $amount,
-            self::ARITHMETIC_SCALE
+        // calculate available free charge limit
+        $maxLimit                 = new Amount(
+            self::WEEKLY_FREE_CHARGE_LIMIT['amount'],
+            self::WEEKLY_FREE_CHARGE_LIMIT['currency']
+        );
+        $availableFreeChargeLimit = $this->currencyService->subAmount(
+            $maxLimit,
+            $totalAmount,
+            $this->transaction->getAmountSymbol()
         );
 
-        $maximumOperationLimitReached    = $operationCount >= self::WEEKLY_FREE_CHARGE_LIMIT['maxOperations'];
-        $userHasAvailableFreeChargeLimit = $availableFreeChargeLimit > 0;
+        $maximumOperationLimitIsReached = $operationCount >= self::WEEKLY_FREE_CHARGE_LIMIT['maxOperations'];
 
         return compact(
-            'amount',
-            'maximumOperationLimitReached',
-            'userHasAvailableFreeChargeLimit',
+            'maximumOperationLimitIsReached',
             'availableFreeChargeLimit'
         );
+    }
+
+    /**
+     * @return Transaction[]
+     */
+    private function getLastWeeksTransactions()
+    {
+        return array_filter($this->transactionHistory->getTransactions(), function (Transaction $transaction) {
+            return
+                // must be older than this transaction
+                $transaction->getTransactionID() < $this->transaction->getTransactionID()
+                &&
+                // processed in same week with this transaction
+                $transaction->getTransactionDate()->format('oW') ===
+                $this->transaction->getTransactionDate()->format('oW')
+                &&
+                // having same operation type with this transaction
+                $transaction->getOperationType() === $this->transaction->getOperationType()
+                &&
+                // having the same id with this transaction
+                $transaction->getIdentificationNumber() === $this->transaction->getIdentificationNumber();
+        });
     }
 }

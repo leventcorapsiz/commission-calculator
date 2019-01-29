@@ -3,68 +3,73 @@
 namespace leventcorapsiz\CommissionCalculator\Tests\Commissions\Types;
 
 use leventcorapsiz\CommissionCalculator\Commissions\Types\CashOutNaturalCommission;
-use leventcorapsiz\CommissionCalculator\Transaction;
+use leventcorapsiz\CommissionCalculator\Models\Amount;
+use leventcorapsiz\CommissionCalculator\Models\Transaction;
+use leventcorapsiz\CommissionCalculator\Services\CurrencyService;
+use leventcorapsiz\CommissionCalculator\TransactionCollection;
 use PHPUnit\Framework\TestCase;
 
 final class CashOutNaturalCommissionTest extends TestCase
 {
-    public function testFreeCharge()
+    /**
+     * @var CurrencyService
+     */
+    private $currencyService;
+
+    /**
+     * @var Transaction
+     */
+    private $transaction;
+
+    /**
+     * @var TransactionCollection
+     */
+    private $transactionCollection;
+
+    /**
+     * @var Amount
+     */
+    private $amount;
+
+    public function setUp()
     {
-        $commission = new CashOutNaturalCommission(
-            1,
-            'EUR',
-            null,
-            []
-        );
-        $this->assertEquals(0, $commission->calculate());
+        $this->currencyService       = $this->createMock(CurrencyService::class);
+        $this->transaction           = $this->createMock(Transaction::class);
+        $this->transactionCollection = $this->createMock(TransactionCollection::class);
+        $this->amount                = $this->createMock(Amount::class);
     }
 
-    public function testDefaultCommission()
+    public function testWillReturnAmount()
     {
-        $oldTransactions = [];
-        for ($i = 0; $i < 4; $i++) {
-            $oldTransactions[] = new Transaction(
-                "2019-01-0{$i}",
-                1,
-                'natural',
-                'cash_out',
-                '350',
-                'EUR'
-            );
-        }
-        $commission = new CashOutNaturalCommission(
-            100,
-            'EUR',
-            '2019-01-05',
-            $oldTransactions
-        );
-        $this->assertEquals(
-            CashOutNaturalCommission::COMMISSION_PERCENTAGE,
-            $commission->calculate()
-        );
-    }
+        $this->transaction
+            ->expects($this->atLeastOnce())
+            ->method('getAmount')
+            ->willReturn($this->amount);
 
-    public function testChargeForOnlyExceededAmount()
-    {
-        $oldTransactions = [];
-        for ($i = 0; $i < 4; $i++) {
-            $oldTransactions[] = new Transaction(
-                "2019-02-2{$i}",
-                1,
-                'natural',
-                'cash_out',
-                '300',
-                'EUR'
-            );
-        }
-        $commission = new CashOutNaturalCommission(
-            200,
-            'EUR',
-            '2019-02-24',
-            $oldTransactions
+        $this->transactionCollection
+            ->expects($this->atLeastOnce())
+            ->method('getTransactions')
+            ->willReturn([$this->transaction]);
+
+        $this->currencyService
+            ->expects($this->atLeastOnce())
+            ->method('subAmount')
+            ->willReturn($this->amount);
+
+        $this->currencyService
+            ->expects($this->atLeastOnce())
+            ->method('getPercentageOfAmount')
+            ->willReturn($this->amount);
+
+        $commission = new CashOutNaturalCommission($this->transaction,
+            $this->currencyService,
+            $this->transactionCollection
         );
-        $this->assertEquals(
-            0.6,
+
+        $commission->calculate();
+
+        $this->assertInstanceOf(
+            Amount::class,
             $commission->calculate()
         );
     }

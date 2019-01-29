@@ -4,6 +4,8 @@ namespace leventcorapsiz\CommissionCalculator;
 
 use League\Csv\Reader;
 use leventcorapsiz\CommissionCalculator\Exceptions\FileNotFoundException;
+use leventcorapsiz\CommissionCalculator\Models\Amount;
+use leventcorapsiz\CommissionCalculator\Models\Transaction;
 
 class TransactionCollection
 {
@@ -14,38 +16,42 @@ class TransactionCollection
 
     /**
      * @param $path
+     * @param bool $append
      *
      * @throws FileNotFoundException
      */
-    public function parseFromCSV($path)
+    public function parseFromCSV($path, $append = false)
     {
         if (!file_exists($path)) {
             throw new FileNotFoundException;
         }
-
-        foreach (Reader::createFromPath($path) as $transaction) {
-            $transaction = new Transaction(...$transaction);
-            $transaction->setUserTransactionHistory(
-                $this->getUserTransactionHistoryByID(
-                    $transaction->getIdentificationNumber()
-                )
-            );
-
-            $this->add($transaction);
+        $this->transactions = $append ? $this->transactions : [];
+        foreach (Reader::createFromPath($path) as $csvLine) {
+            $this->add(new Transaction(
+                $this->generateTransactionID(),
+                new \DateTime($csvLine[0]),
+                $csvLine[1],
+                $csvLine[2],
+                $csvLine[3],
+                new Amount($csvLine[4], $csvLine[5])
+            ));
         }
     }
 
     /**
-     * @return array
+     * @return int
      */
-    public function getCommissionFees()
+    private function generateTransactionID()
     {
-        $fees = [];
-        foreach ($this->transactions as $transaction) {
-            $fees[] = $transaction->getCommissionFee();
-        }
+        return $this->isEmpty() ? 1 : end($this->getTransactions())->getTransactionID() + 1;
+    }
 
-        return $fees;
+    /**
+     * @return Transaction[]
+     */
+    public function getTransactions()
+    {
+        return $this->transactions;
     }
 
     /**
@@ -53,7 +59,7 @@ class TransactionCollection
      *
      * @return $this
      */
-    private function add(Transaction $transaction)
+    public function add(Transaction $transaction)
     {
         $this->transactions[] = $transaction;
 
@@ -61,17 +67,10 @@ class TransactionCollection
     }
 
     /**
-     * @param $identificationNumber
-     *
-     * @return array
+     * @return bool
      */
-    private function getUserTransactionHistoryByID($identificationNumber)
+    private function isEmpty()
     {
-        $collection = $this->transactions;
-
-        return array_filter($collection,
-            function (Transaction $transaction) use ($identificationNumber) {
-                return $transaction->getIdentificationNumber() === $identificationNumber;
-            });
+        return empty($this->getTransactions());
     }
 }

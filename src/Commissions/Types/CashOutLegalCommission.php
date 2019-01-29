@@ -2,7 +2,9 @@
 
 namespace leventcorapsiz\CommissionCalculator\Commissions\Types;
 
-use leventcorapsiz\CommissionCalculator\Services\CurrencyService;
+use leventcorapsiz\CommissionCalculator\Commissions\Commission;
+use leventcorapsiz\CommissionCalculator\Commissions\CommissionTypeInterface;
+use leventcorapsiz\CommissionCalculator\Models\Amount;
 
 class CashOutLegalCommission extends Commission implements CommissionTypeInterface
 {
@@ -20,18 +22,14 @@ class CashOutLegalCommission extends Commission implements CommissionTypeInterfa
     ];
 
     /**
-     * @return float
+     * @return Amount
      */
     public function calculate()
     {
         $commission    = $this->getFee(self::COMMISSION_PERCENTAGE);
-        $minCommission = CurrencyService::convert(
-            self::MIN_COMMISSION['currency'],
-            self::MIN_COMMISSION['fee'],
-            $this->currency
-        );
+        $minCommission = new Amount(self::MIN_COMMISSION['fee'], self::MIN_COMMISSION['currency']);
 
-        if (bccomp($minCommission, $commission, self::ARITHMETIC_SCALE) === 1) {
+        if ($this->currencyService->isGreater($minCommission, $commission)) {
             return $minCommission;
         }
 

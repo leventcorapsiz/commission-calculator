@@ -3,19 +3,58 @@
 namespace leventcorapsiz\CommissionCalculator\Tests\Commissions\Types;
 
 use leventcorapsiz\CommissionCalculator\Commissions\Types\CashOutLegalCommission;
+use leventcorapsiz\CommissionCalculator\Models\Amount;
+use leventcorapsiz\CommissionCalculator\Models\Transaction;
+use leventcorapsiz\CommissionCalculator\Services\CurrencyService;
 use PHPUnit\Framework\TestCase;
 
 final class CashOutLegalCommissionTest extends TestCase
 {
-    public function testMinimumCommissionFee()
+    /**
+     * @var CurrencyService
+     */
+    private $currencyService;
+
+    /**
+     * @var Transaction
+     */
+    private $transaction;
+
+    /**
+     * @var Amount
+     */
+    private $amount;
+
+    public function setUp()
     {
-        $commission = new CashOutLegalCommission(1, 'EUR');
-        $this->assertEquals($commission::MIN_COMMISSION['fee'], $commission->calculate());
+        $this->currencyService = $this->createMock(CurrencyService::class);
+        $this->transaction     = $this->createMock(Transaction::class);
+        $this->amount          = $this->createMock(Amount::class);
     }
 
-    public function testDefaultCommissionFee()
+    public function testWillReturnAmount()
     {
-        $commission = new CashOutLegalCommission(100, 'EUR');
-        $this->assertIsFloat($commission::COMMISSION_PERCENTAGE, $commission->calculate());
+        $this->transaction
+            ->expects($this->atLeastOnce())
+            ->method('getAmount')
+            ->willReturn($this->amount);
+
+        $this->currencyService
+            ->expects($this->atLeastOnce())
+            ->method('isGreater')
+            ->willReturn($this->amount);
+
+        $this->currencyService
+            ->expects($this->atLeastOnce())
+            ->method('getPercentageOfAmount')
+            ->willReturn($this->amount);
+
+        $commission = new CashOutLegalCommission($this->transaction, $this->currencyService);
+        $commission->calculate();
+
+        $this->assertInstanceOf(
+            Amount::class,
+            $commission->calculate()
+        );
     }
 }

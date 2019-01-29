@@ -2,7 +2,9 @@
 
 namespace leventcorapsiz\CommissionCalculator\Commissions\Types;
 
-use leventcorapsiz\CommissionCalculator\Services\CurrencyService;
+use leventcorapsiz\CommissionCalculator\Commissions\Commission;
+use leventcorapsiz\CommissionCalculator\Commissions\CommissionTypeInterface;
+use leventcorapsiz\CommissionCalculator\Models\Amount;
 
 class CashInCommission extends Commission implements CommissionTypeInterface
 {
@@ -20,18 +22,14 @@ class CashInCommission extends Commission implements CommissionTypeInterface
     ];
 
     /**
-     * @return float
+     * @return Amount
      */
     public function calculate()
     {
         $commission    = $this->getFee(self::COMMISSION_PERCENTAGE);
-        $maxCommission = CurrencyService::convert(
-            self::MAX_COMMISSION['currency'],
-            self::MAX_COMMISSION['fee'],
-            $this->currency
-        );
+        $maxCommission = new Amount(self::MAX_COMMISSION['fee'], self::MAX_COMMISSION['currency']);
 
-        if (bccomp($commission, $maxCommission, self::ARITHMETIC_SCALE) === 1) {
+        if ($this->currencyService->isGreater($commission, $maxCommission)) {
             return $maxCommission;
         }
 
