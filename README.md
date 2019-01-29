@@ -43,7 +43,7 @@ $currencyService->collectCurrenciesFromArray($currencies);
     
 $commissionService = new CommissionService($currencyService);
     
-return $commissionService->calculateFeesFromCollection($collection); 
+$fees = $commissionService->calculateFeesFromCollection($collection); 
 ```  
 ## Demo  
   
