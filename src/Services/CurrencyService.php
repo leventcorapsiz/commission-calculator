@@ -19,30 +19,14 @@ class CurrencyService
     protected $currencies = [];
 
     /**
-     * @var string
-     */
-    protected $defaultCurrencySymbol;
-
-    /**
-     * CurrencyService constructor.
-     *
-     * @param string $defaultCurrencySymbol
-     */
-    public function __construct($defaultCurrencySymbol = 'EUR')
-    {
-        $this->defaultCurrencySymbol = $defaultCurrencySymbol;
-    }
-
-    /**
      * @param array $currencies
      *
      * @return $this
      */
     public function collectCurrenciesFromArray(array $currencies)
     {
-        $this->currencies = [];
         foreach ($currencies as $currency) {
-            $this->currencies[] = new Currency(...array_values($currency));
+            $this->currencies[$currency['symbol']] = new Currency(...array_values($currency));
         }
 
         return $this;
@@ -56,34 +40,16 @@ class CurrencyService
      */
     public function convert(Amount $amount, $symbol)
     {
-        // no need to convert
-        if ($amount->getSymbol() === $symbol) {
-            return $amount;
-        }
-        // convert from default currency
-        if ($amount->getSymbol() === $this->defaultCurrencySymbol) {
-            $rate = $this->getCurrencyRateForSymbol($symbol);
+        $multiplier = bcdiv(
+            $this->getCurrencyRateForSymbol($symbol),
+            $this->getCurrencyRateForSymbol($amount->getSymbol()),
+            self::ARITHMETIC_SCALE
+        );
 
-            return new Amount(
-                bcmul($rate, $amount->getAmount(), self::ARITHMETIC_SCALE),
-                $symbol
-            );
-        }
-
-        // convert to default currency
-        if ($symbol === $this->defaultCurrencySymbol) {
-            $rate = $this->getCurrencyRateForSymbol($amount->getSymbol());
-
-            return new Amount(
-                bcdiv($amount->getAmount(), $rate, self::ARITHMETIC_SCALE),
-                $symbol
-            );
-        }
-
-        // none of the given currencies have default symbol. convert amount to default currency then recursive call
-        $amountInDefaultCurrency = $this->convert($amount, $this->defaultCurrencySymbol);
-
-        return $this->convert($amountInDefaultCurrency, $symbol);
+        return new Amount(
+            bcmul($amount->getAmount(), $multiplier, self::ARITHMETIC_SCALE),
+            $symbol
+        );
     }
 
     /**
@@ -133,8 +99,8 @@ class CurrencyService
     public function isGreater(Amount $firstAmount, Amount $secondAmount)
     {
         return bccomp(
-                $this->convert($firstAmount, $this->defaultCurrencySymbol)->getAmount(),
-                $this->convert($secondAmount, $this->defaultCurrencySymbol)->getAmount(),
+                $firstAmount->getAmount(),
+                $this->convert($secondAmount, $firstAmount->getSymbol())->getAmount(),
                 self::ARITHMETIC_SCALE
             ) === 1;
     }
@@ -205,10 +171,8 @@ class CurrencyService
      */
     private function getCurrencyOfSymbol($symbol)
     {
-        foreach ($this->currencies as $currency) {
-            if ($currency->getSymbol() === $symbol) {
-                return $currency;
-            }
+        if (isset($this->currencies[$symbol])) {
+            return $this->currencies[$symbol];
         }
 
         throw new InvalidCurrencyException;
